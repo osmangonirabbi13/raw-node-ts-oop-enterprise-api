@@ -1,22 +1,11 @@
-import http, { IncomingMessage, Server, ServerResponse } from "node:http";
-import { ResponseHelper } from "./Response";
+import http, {
+  type IncomingMessage,
+  type Server,
+  type ServerResponse,
+} from "node:http";
+import { ResponseHelper } from "./Response.js";
+import { RequestParser } from "./RequestParser.js";
 
-type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
-
-type JsonResponse = {
-  success: boolean;
-  message: string;
-  data?: JsonValue;
-  error?: JsonValue;
-  uptime?: number;
-  timestamp?: string;
-};
 
 export class App {
   private readonly server: Server;
@@ -25,35 +14,51 @@ export class App {
     this.server = http.createServer(this.handleRequest);
   }
 
-  // private sendJson(
-  //   res: ServerResponse,
-  //   statusCode: number,
-  //   payload: JsonResponse,
-  // ): void {
-  //   res.writeHead(statusCode, { "Content-Type": "application/json" });
+  private handleRequest = async (
+    req: IncomingMessage,
+    res: ServerResponse
+  ): Promise<void> => {
+    try {
+      const method = req.method;
+      const url = req.url;
 
-  //   res.end(JSON.stringify(payload));
-  // }
+      if (method === "GET" && url === "/") {
+        return ResponseHelper.success(
+          res,
+          "Welcome to Raw Node.js TypeScript OOP API"
+        );
+      }
 
-  private handleRequest = (req: IncomingMessage, res: ServerResponse): void => {
-    const method = req.method;
-    const url = req.url;
+      if (method === "GET" && url === "/health") {
+        return ResponseHelper.success(res, "Server is healthy", {
+          uptime: process.uptime(),
+          timestamp: new Date().toISOString(),
+        });
+      }
 
-    if (method === "GET" && url === "/") {
-      return ResponseHelper.success(
-        res,
-        "Welcome to Raw Node.js TypeScript OOP API",
-      );
+      if (method === "POST" && url === "/echo") {
+        const body = await RequestParser.parseJsonBody(req);
+
+        return ResponseHelper.success(res, "Body parsed successfully", {
+          body,
+        });
+      }
+
+      return ResponseHelper.notFound(res);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Internal server error";
+
+      if (message === "Invalid JSON body") {
+        return ResponseHelper.badRequest(res, message);
+      }
+
+      if (message === "Request body too large") {
+        return ResponseHelper.error(res, message, 413);
+      }
+
+      return ResponseHelper.error(res, "Internal server error", 500);
     }
-
-    if (method === "GET" && url === "/health") {
-      return ResponseHelper.success(res, "Server is healthy", {
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    return ResponseHelper.notFound(res);
   };
 
   public listen(port: number): void {

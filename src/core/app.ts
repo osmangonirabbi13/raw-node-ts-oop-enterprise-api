@@ -5,46 +5,46 @@ import http, {
 } from "node:http";
 import { ResponseHelper } from "./Response.js";
 import { RequestParser } from "./RequestParser.js";
-
+import { Router } from "./Router.js";
 
 export class App {
   private readonly server: Server;
+  private readonly router: Router;
 
   constructor() {
     this.server = http.createServer(this.handleRequest);
+    this.router = new Router();
+    this.registerRoutes();
+  }
+
+  private registerRoutes(): void {
+    this.router.get("/", (req, res) => {
+      return ResponseHelper.success(
+        res,
+        "Welcome to Raw Node.js TypeScript OOP API",
+      );
+    });
+
+    this.router.get("/health", (req, res) => {
+      return ResponseHelper.success(res, "Server is healthy", {
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+      });
+    });
+
+    this.router.post("/echo", async (req, res) => {
+      const body = await RequestParser.parseJsonBody(req);
+
+      return ResponseHelper.success(res, "Body parsed successfully", { body });
+    });
   }
 
   private handleRequest = async (
     req: IncomingMessage,
-    res: ServerResponse
+    res: ServerResponse,
   ): Promise<void> => {
     try {
-      const method = req.method;
-      const url = req.url;
-
-      if (method === "GET" && url === "/") {
-        return ResponseHelper.success(
-          res,
-          "Welcome to Raw Node.js TypeScript OOP API"
-        );
-      }
-
-      if (method === "GET" && url === "/health") {
-        return ResponseHelper.success(res, "Server is healthy", {
-          uptime: process.uptime(),
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      if (method === "POST" && url === "/echo") {
-        const body = await RequestParser.parseJsonBody(req);
-
-        return ResponseHelper.success(res, "Body parsed successfully", {
-          body,
-        });
-      }
-
-      return ResponseHelper.notFound(res);
+      await this.router.handle(req, res);
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Internal server error";

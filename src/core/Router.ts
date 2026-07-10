@@ -1,5 +1,10 @@
 import { ResponseHelper } from "./Response.js";
-import { type AppRequest, type AppResponse, type RouteParams } from "./HttpTypes.js";
+import {
+  type AppRequest,
+  type AppResponse,
+  type QueryParams,
+  type RouteParams,
+} from "./HttpTypes.js";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -17,6 +22,11 @@ type Route = {
 type MatchResult = {
   matched: boolean;
   params: RouteParams;
+};
+
+type ParsedUrl = {
+  pathname: string;
+  query: QueryParams;
 };
 
 export class Router {
@@ -56,7 +66,9 @@ export class Router {
 
   public async handle(req: AppRequest, res: AppResponse): Promise<void> {
     const method = req.method as HttpMethod | undefined;
-    const pathname = this.getPathname(req.url);
+    const parsedUrl = this.parseUrl(req.url);
+
+    req.query = parsedUrl.query;
 
     if (!method) {
       return ResponseHelper.badRequest(res, "HTTP method is missing");
@@ -67,7 +79,7 @@ export class Router {
         continue;
       }
 
-      const matchResult = this.matchPath(route.path, pathname);
+      const matchResult = this.matchPath(route.path, parsedUrl.pathname);
 
       if (matchResult.matched) {
         req.params = matchResult.params;
@@ -79,14 +91,42 @@ export class Router {
     return ResponseHelper.notFound(res);
   }
 
-  private getPathname(url: string | undefined): string {
+  private parseUrl(url: string | undefined): ParsedUrl {
     if (!url) {
-      return "/";
+      return {
+        pathname: "/",
+        query: {},
+      };
     }
 
     const parsedUrl = new URL(url, "http://localhost");
 
-    return parsedUrl.pathname;
+    return {
+      pathname: parsedUrl.pathname,
+      query: this.parseQuery(parsedUrl.searchParams),
+    };
+  }
+
+  private parseQuery(searchParams: URLSearchParams): QueryParams {
+    const query: QueryParams = {};
+
+    for (const [key, value] of searchParams.entries()) {
+      const existingValue = query[key];
+
+      if (existingValue === undefined) {
+        query[key] = value;
+        continue;
+      }
+
+      if (Array.isArray(existingValue)) {
+        existingValue.push(value);
+        continue;
+      }
+
+      query[key] = [existingValue, value];
+    }
+
+    return query;
   }
 
   private matchPath(routePath: string, requestPath: string): MatchResult {

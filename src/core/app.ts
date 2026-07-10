@@ -3,11 +3,10 @@ import http, {
   type Server,
   type ServerResponse,
 } from "node:http";
-import { ResponseHelper } from "./Response";
-import { RequestParser } from "./RequestParser";
-import { AppRequest } from "./HttpTypes";
-import { Router } from "./Router";
-
+import { type AppRequest } from "./HttpTypes.js";
+import { RequestParser } from "./RequestParser.js";
+import { ResponseHelper } from "./Response.js";
+import { Router } from "./Router.js";
 
 export class App {
   private readonly server: Server;
@@ -24,7 +23,7 @@ export class App {
     this.router.get("/", (_req, res) => {
       return ResponseHelper.success(
         res,
-        "Welcome to Raw Node.js TypeScript OOP API",
+        "Welcome to Raw Node.js TypeScript OOP API"
       );
     });
 
@@ -44,27 +43,62 @@ export class App {
     });
 
     this.router.get("/users/:id", (req, res) => {
+      const userId = req.params.id;
+
+      if (!userId) {
+        return ResponseHelper.badRequest(res, "User id is required");
+      }
+
       return ResponseHelper.success(res, "User route param loaded", {
         params: req.params,
-        userId: req.params.id,
+        userId,
+      });
+    });
+
+    this.router.get("/products", (req, res) => {
+      return ResponseHelper.success(res, "Product query params loaded", {
+        query: req.query,
+        search: this.getSingleQueryValue(req.query.search),
+        page: this.getSingleQueryValue(req.query.page),
+        limit: this.getSingleQueryValue(req.query.limit),
+        sort: this.getSingleQueryValue(req.query.sort),
       });
     });
 
     this.router.get("/products/:slug", (req, res) => {
+      const slug = req.params.slug;
+
+      if (!slug) {
+        return ResponseHelper.badRequest(res, "Product slug is required");
+      }
+
       return ResponseHelper.success(res, "Product route param loaded", {
         params: req.params,
-        slug: req.params.slug,
+        slug,
       });
     });
   }
 
+  private getSingleQueryValue(value: string | string[] | undefined): string | null {
+    if (value === undefined) {
+      return null;
+    }
+
+    if (Array.isArray(value)) {
+      return value[0] ?? null;
+    }
+
+    return value;
+  }
+
   private handleRequest = async (
     req: IncomingMessage,
-    res: ServerResponse,
+    res: ServerResponse
   ): Promise<void> => {
     try {
       const appReq = req as AppRequest;
       appReq.params = {};
+      appReq.query = {};
 
       await this.router.handle(appReq, res);
     } catch (error) {

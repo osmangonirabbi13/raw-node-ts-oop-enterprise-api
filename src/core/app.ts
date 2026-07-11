@@ -4,19 +4,33 @@ import http, {
   type ServerResponse,
 } from "node:http";
 import { type AppRequest } from "./HttpTypes.js";
+import { MiddlewareManager, type Middleware } from "./Middleware.js";
 import { RequestParser } from "./RequestParser.js";
 import { ResponseHelper } from "./Response.js";
 import { Router } from "./Router.js";
+import { loggerMiddleware } from "../middlewares/logger.middleware.js";
 
 export class App {
   private readonly server: Server;
   private readonly router: Router;
+  private readonly middlewareManager: MiddlewareManager;
 
   constructor() {
     this.router = new Router();
+    this.middlewareManager = new MiddlewareManager();
+ 
+    this.registerMiddlewares();
     this.registerRoutes();
 
     this.server = http.createServer(this.handleRequest);
+  }
+
+  public use(middleware: Middleware): void {
+    this.middlewareManager.use(middleware);
+  }
+
+  private registerMiddlewares(): void {
+    this.use(loggerMiddleware);
   }
 
   private registerRoutes(): void {
@@ -100,7 +114,9 @@ export class App {
       appReq.params = {};
       appReq.query = {};
 
-      await this.router.handle(appReq, res);
+      await this.middlewareManager.run(appReq, res, async () => {
+        await this.router.handle(appReq, res);
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Internal server error";
@@ -111,6 +127,10 @@ export class App {
 
       if (message === "Request body too large") {
         return ResponseHelper.error(res, message, 413);
+      }
+
+      if (message === "next() called multiple times") {
+        return ResponseHelper.error(res, message, 500);
       }
 
       return ResponseHelper.error(res, "Internal server error", 500);

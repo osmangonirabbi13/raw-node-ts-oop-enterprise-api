@@ -1,5 +1,6 @@
 import { IncomingMessage } from "node:http";
 import { Buffer } from "node:buffer";
+import { AppError } from "./AppError";
 
 export class RequestParser {
   private static readonly MAX_BODY_SIZE = 1024 * 1024; // 1MB
@@ -13,7 +14,7 @@ export class RequestParser {
         bodySize += chunk.length;
 
         if (bodySize > this.MAX_BODY_SIZE) {
-          reject(new Error("Request body too large"));
+          reject(new AppError("Request body too large"));
           req.destroy();
           return;
         }
@@ -31,12 +32,12 @@ export class RequestParser {
           const parsedBody = JSON.parse(body) as T;
           resolve(parsedBody);
         } catch {
-          reject(new Error("Invalid JSON body"));
+          reject(new AppError("Invalid JSON body"));
         }
       });
 
       req.on("error", () => {
-        reject(new Error("Unable to read request body"));
+        reject(new AppError("Unable to read request body"));
       });
     });
   }

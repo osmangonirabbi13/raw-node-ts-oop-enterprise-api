@@ -1,3 +1,4 @@
+import { AppError } from "./AppError";
 import { AppRequest, AppResponse } from "./HttpTypes";
 
 export type NextFuncation = () => Promise<void>;
@@ -24,7 +25,7 @@ export class MiddlewareManager {
 
     const dispatch = async (currentIndex: number): Promise<void> => {
       if (currentIndex <= index) {
-        throw new Error("next() called multiple times");
+        throw new AppError("next() called multiple times");
       }
 
       index = currentIndex;

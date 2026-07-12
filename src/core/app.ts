@@ -9,6 +9,7 @@ import { RequestParser } from "./RequestParser.js";
 import { ResponseHelper } from "./Response.js";
 import { Router } from "./Router.js";
 import { loggerMiddleware } from "../middlewares/logger.middleware.js";
+import { ErrorHandler } from "../middlewares/error-handler.middleware.js";
 
 export class App {
   private readonly server: Server;
@@ -18,7 +19,7 @@ export class App {
   constructor() {
     this.router = new Router();
     this.middlewareManager = new MiddlewareManager();
- 
+
     this.registerMiddlewares();
     this.registerRoutes();
 
@@ -37,7 +38,7 @@ export class App {
     this.router.get("/", (_req, res) => {
       return ResponseHelper.success(
         res,
-        "Welcome to Raw Node.js TypeScript OOP API"
+        "Welcome to Raw Node.js TypeScript OOP API",
       );
     });
 
@@ -91,9 +92,15 @@ export class App {
         slug,
       });
     });
+
+    this.router.get("/error-test", () => {
+      throw new Error("This is unexpected error test");
+    });
   }
 
-  private getSingleQueryValue(value: string | string[] | undefined): string | null {
+  private getSingleQueryValue(
+    value: string | string[] | undefined,
+  ): string | null {
     if (value === undefined) {
       return null;
     }
@@ -107,7 +114,7 @@ export class App {
 
   private handleRequest = async (
     req: IncomingMessage,
-    res: ServerResponse
+    res: ServerResponse,
   ): Promise<void> => {
     try {
       const appReq = req as AppRequest;
@@ -118,22 +125,7 @@ export class App {
         await this.router.handle(appReq, res);
       });
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : "Internal server error";
-
-      if (message === "Invalid JSON body") {
-        return ResponseHelper.badRequest(res, message);
-      }
-
-      if (message === "Request body too large") {
-        return ResponseHelper.error(res, message, 413);
-      }
-
-      if (message === "next() called multiple times") {
-        return ResponseHelper.error(res, message, 500);
-      }
-
-      return ResponseHelper.error(res, "Internal server error", 500);
+      ErrorHandler.handle(error, res);
     }
   };
 

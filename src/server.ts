@@ -1,7 +1,8 @@
+import { env } from "./config/env";
 import { App } from "./core/app";
 
-const PORT = 4000;
+
 
 const app = new App();
 
-app.listen(PORT);
+app.listen(env.PORT)

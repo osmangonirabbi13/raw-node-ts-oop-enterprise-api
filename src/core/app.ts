@@ -10,6 +10,7 @@ import { ResponseHelper } from "./Response.js";
 import { Router } from "./Router.js";
 import { loggerMiddleware } from "../middlewares/logger.middleware.js";
 import { ErrorHandler } from "../middlewares/error-handler.middleware.js";
+import { registerUserRoutes } from "../modules/users/user.routes.js";
 
 export class App {
   private readonly server: Server;
@@ -34,69 +35,31 @@ export class App {
     this.use(loggerMiddleware);
   }
 
-  private registerRoutes(): void {
-    this.router.get("/", (_req, res) => {
-      return ResponseHelper.success(
-        res,
-        "Welcome to Raw Node.js TypeScript OOP API",
-      );
+ private registerRoutes(): void {
+  this.router.get("/", (_req, res) => {
+    return ResponseHelper.success(
+      res,
+      "Welcome to Raw Node.js TypeScript OOP API"
+    );
+  });
+
+  this.router.get("/health", (_req, res) => {
+    return ResponseHelper.success(res, "Server is healthy", {
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
     });
+  });
 
-    this.router.get("/health", (_req, res) => {
-      return ResponseHelper.success(res, "Server is healthy", {
-        uptime: process.uptime(),
-        timestamp: new Date().toISOString(),
-      });
+  this.router.post("/echo", async (req, res) => {
+    const body = await RequestParser.parseJsonBody(req);
+
+    return ResponseHelper.success(res, "Body parsed successfully", {
+      body,
     });
+  });
 
-    this.router.post("/echo", async (req, res) => {
-      const body = await RequestParser.parseJsonBody(req);
-
-      return ResponseHelper.success(res, "Body parsed successfully", {
-        body,
-      });
-    });
-
-    this.router.get("/users/:id", (req, res) => {
-      const userId = req.params.id;
-
-      if (!userId) {
-        return ResponseHelper.badRequest(res, "User id is required");
-      }
-
-      return ResponseHelper.success(res, "User route param loaded", {
-        params: req.params,
-        userId,
-      });
-    });
-
-    this.router.get("/products", (req, res) => {
-      return ResponseHelper.success(res, "Product query params loaded", {
-        query: req.query,
-        search: this.getSingleQueryValue(req.query.search),
-        page: this.getSingleQueryValue(req.query.page),
-        limit: this.getSingleQueryValue(req.query.limit),
-        sort: this.getSingleQueryValue(req.query.sort),
-      });
-    });
-
-    this.router.get("/products/:slug", (req, res) => {
-      const slug = req.params.slug;
-
-      if (!slug) {
-        return ResponseHelper.badRequest(res, "Product slug is required");
-      }
-
-      return ResponseHelper.success(res, "Product route param loaded", {
-        params: req.params,
-        slug,
-      });
-    });
-
-    this.router.get("/error-test", () => {
-      throw new Error("This is unexpected error test");
-    });
-  }
+  registerUserRoutes(this.router);
+}
 
   private getSingleQueryValue(
     value: string | string[] | undefined,

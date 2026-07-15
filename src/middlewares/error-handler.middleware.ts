@@ -1,6 +1,7 @@
-import { AppError } from "../core/AppError";
-import { AppResponse } from "../core/HttpTypes";
-import { ResponseHelper } from "../core/Response";
+import { ZodError } from "zod";
+import { AppError } from "../core/AppError.js";
+import { type AppResponse } from "../core/HttpTypes.js";
+import { ResponseHelper } from "../core/Response.js";
 
 export class ErrorHandler {
   public static handle(error: unknown, res: AppResponse): void {
@@ -14,7 +15,18 @@ export class ErrorHandler {
         res,
         error.message,
         error.statusCode,
-        error.details,
+        error.details
+      );
+    }
+
+    if (error instanceof ZodError) {
+      return ResponseHelper.badRequest(
+        res,
+        "Validation failed",
+        error.issues.map((issue) => ({
+          field: issue.path.join("."),
+          message: issue.message,
+        }))
       );
     }
 
